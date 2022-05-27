@@ -7,86 +7,89 @@ import os
 import random
 
 
-class CelebA(data.Dataset):
+class DiabeticRetinopathy(data.Dataset):
     """Dataset class for the CelebA dataset."""
 
-    def __init__(self, image_dir, attr_path, selected_attrs, transform, mode):
-        """Initialize and preprocess the CelebA dataset."""
+    def __init__(self, image_dir, attr_csv_path, mode, transform):
+
+        """Initialize and preprocess the dataset."""
         self.image_dir = image_dir
-        self.attr_path = attr_path
-        self.selected_attrs = selected_attrs
-        self.transform = transform
+        self.attr_csv_path = attr_csv_path
         self.mode = mode
         self.train_dataset = []
         self.test_dataset = []
-        self.attr2idx = {}
-        self.idx2attr = {}
         self.preprocess()
-
+        self.transform = transform
         if mode == 'train':
             self.num_images = len(self.train_dataset)
         else:
             self.num_images = len(self.test_dataset)
 
     def preprocess(self):
-        """Preprocess the CelebA attribute file."""
-        lines = [line.rstrip() for line in open(self.attr_path, 'r')]
-        all_attr_names = lines[1].split()
-        for i, attr_name in enumerate(all_attr_names):
-            self.attr2idx[attr_name] = i
-            self.idx2attr[i] = attr_name
-
-        lines = lines[2:]
+        """Preprocess the attribute file."""
+        # 라벨링 csv 읽어오기
+        lines = [line.rstrip() for line in open(self.attr_csv_path, 'r')]
+        # 맨 위 이름 제외
+        # 테스트 때문에 33까지, 실제는 1:로 사용
+        lines = lines[1:33]
+        # 셔플
         random.seed(1234)
         random.shuffle(lines)
+
+        # 이미지 이름에 라벨링
         for i, line in enumerate(lines):
-            split = line.split()
-            filename = split[0]
-            values = split[1:]
+            split = line.split(",")
+            filename = f"{split[0]}.jpeg"
+            values = int(split[1])
+            # left 0~4 right 5~9 오른쪽이면 +5
+            if filename.split("_")[1] == "right.jpeg":
+                values += 5
 
-            label = []
-            for attr_name in self.selected_attrs:
-                idx = self.attr2idx[attr_name]
-                label.append(values[idx] == '1')
-
-            if (i+1) < 2000:
-                self.test_dataset.append([filename, label])
+            # Test, Train 데이터 나누기
+            if (i+1) < 5000:
+                self.train_dataset.append([filename, values])
             else:
-                self.train_dataset.append([filename, label])
+                self.test_dataset.append([filename, values])
 
-        print('Finished preprocessing the CelebA dataset...')
+        print('Finished preprocessing the dataset...')
 
     def __getitem__(self, index):
         """Return one image and its corresponding attribute label."""
         dataset = self.train_dataset if self.mode == 'train' else self.test_dataset
+        # ex) filename: 10_left.jpeg, label = 0
         filename, label = dataset[index]
+        # 이미지 열고, transform 해서 label이랑 반환
         image = Image.open(os.path.join(self.image_dir, filename))
-        return self.transform(image), torch.FloatTensor(label)
+        return self.transform(image), label
 
     def __len__(self):
         """Return the number of images."""
         return self.num_images
 
 
-def get_loader(image_dir, attr_path, selected_attrs, crop_size=178, image_size=128, 
-               batch_size=16, dataset='CelebA', mode='train', num_workers=1):
+def get_loader(image_dir, attr_path,
+               batch_size=16, mode='train', num_workers=1, image_size=[200, 300]):
     """Build and return a data loader."""
+    # Traditional augmentaion
     transform = []
-    if mode == 'train':
-        transform.append(T.RandomHorizontalFlip())
-    transform.append(T.CenterCrop(crop_size))
-    transform.append(T.Resize(image_size))
+    # # Augmentation
+    # if mode == 'train':
+    #     # 상하 반전
+    #     transform.append(T.RandomVerticalFlip())
+    # Resize 높이 200 너비 300
+    # transform.append(T.Resize(image_size))
+    # # numpy image -> tensor image
     transform.append(T.ToTensor())
-    transform.append(T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5)))
+    # 흑백 변환
+    # transform.append(T.Grayscale())
     transform = T.Compose(transform)
 
-    if dataset == 'CelebA':
-        dataset = CelebA(image_dir, attr_path, selected_attrs, transform, mode)
-    elif dataset == 'RaFD':
-        dataset = ImageFolder(image_dir, transform)
-
+    # 데이터셋
+    dataset = DiabeticRetinopathy(image_dir, attr_path, mode, transform)
+    # 데이터 로드
     data_loader = data.DataLoader(dataset=dataset,
                                   batch_size=batch_size,
-                                  shuffle=(mode=='train'),
+                                  shuffle=(mode == 'train'),
                                   num_workers=num_workers)
+#
     return data_loader
