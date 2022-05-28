@@ -23,7 +23,7 @@ Right
 9 - Proliferative DR
 
 Structure
-[20220529010951](https://user-images.githubusercontent.com/76432686/170833498-0b4fdb7f-49d1-4059-ab11-485e4406ee6e.png)
+![image](https://user-images.githubusercontent.com/76432686/170833498-0b4fdb7f-49d1-4059-ab11-485e4406ee6e.png)
 
 
 2022-05-28 Only Generator + CBAM Batch size: 16, Iteration: about 60000, result: fail
