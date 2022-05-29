@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from CBAM import CBAM
+
 
 class ResidualBlock(nn.Module):
     """Residual Block with instance normalization."""
@@ -80,6 +80,7 @@ class Discriminator(nn.Module):
             # 컬러로 할 거면 바로 밑에 nn.Conv2d(curr_dim, ...) => nn.Conv2d(3*curr_dim, ...)
             layers.append(nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=3, stride=2, padding=1))
             layers.append(nn.LeakyReLU(0.01))
+            layers.append(CBAM(curr_dim * 2, 16))
             curr_dim = curr_dim * 2
 
         self.main = nn.Sequential(*layers)
