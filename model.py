@@ -17,8 +17,10 @@ class ResidualBlock(nn.Module):
             nn.InstanceNorm2d(dim_out, affine=True, track_running_stats=True))
         self.cbam = CBAM(dim_out, 16)
 
+    # 수정
     def forward(self, x):
-        return self.cbam(x + self.main(x))
+        return x + self.cbam(self.main(x))
+        # return self.cbam(x + self.main(x))
 
 
 class Generator(nn.Module):
@@ -65,6 +67,20 @@ class Generator(nn.Module):
         return self.main(x)
 
 
+class ResidualBlockDis(nn.Module):
+    """Residual Block with instance normalization."""
+
+    def __init__(self, dim_in, dim_out):
+        super(ResidualBlock, self).__init__()
+        self.main = nn.Sequential(
+            nn.Conv2d(dim_in, dim_in * 2, kernel_size=3, stride=2, padding=1),
+            nn.LeakyReLU(0.01)
+        self.cbam = CBAM(dim_out, 16)
+
+    def forward(self, x):
+        return x + self.cbam(self.main(x))
+
+
 class Discriminator(nn.Module):
     """Discriminator network with PatchGAN."""
 
@@ -73,15 +89,17 @@ class Discriminator(nn.Module):
         layers = []
         # 컬러로 할 거면 바로 밑에 nn.Conv2d(1, ...) => nn.Conv2d(3, ...)
         layers.append(nn.Conv2d(1, conv_dim, kernel_size=4, stride=2, padding=1))
-        layers.append(nn.LeakyReLU(0.01))
-
+        layers.append(nn.LeakyReLU
+        0.01))
+        ## 요기두 줘볼까요
         curr_dim = conv_dim
         for i in range(1, repeat_num):
-            # 컬러로 할 거면 바로 밑에 nn.Conv2d(curr_dim, ...) => nn.Conv2d(3*curr_dim, ...)
-            layers.append(nn.Conv2d(curr_dim, curr_dim * 2, kernel_size=3, stride=2, padding=1))
-            layers.append(nn.LeakyReLU(0.01))
-            layers.append(CBAM(curr_dim * 2, 16))
-            curr_dim = curr_dim * 2
+        # 컬러로 할 거면 바로 밑에 nn.Conv2d(curr_dim, ...) => nn.Conv2d(3*curr_dim, ...)
+        # layers.append(nn.Conv2d(curr_dim, curr_dim*2, kernel_size=3, stride=2, padding=1))
+        # layers.append(nn.LeakyReLU(0.01))
+        # layers.append(CBAM(curr_dim*2, 16))
+            layers.append(ResidualBlockDis(dim_in=curr_dim, dim_out=curr_dim))
+        curr_dim = curr_dim * 2
 
         self.main = nn.Sequential(*layers)
         self.conv1 = nn.Conv2d(curr_dim, 1, kernel_size=3, stride=1, padding=1, bias=False)

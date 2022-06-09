@@ -5,7 +5,11 @@ from PIL import Image
 import torch
 import os
 import random
+import copy
+import numpy as np
 
+
+# [12871, 1212, 2702, 425, 353, 12939, 1231, 2590, 448, 355]
 
 class DiabeticRetinopathy(data.Dataset):
     """Dataset class for the CelebA dataset."""
@@ -20,6 +24,14 @@ class DiabeticRetinopathy(data.Dataset):
         self.test_dataset = []
         self.preprocess()
         self.transform = transform
+
+        # 중증 transformation
+        transformForSevere = []
+        transformForSevere.append(T.RandomVerticalFlip())
+        transformForSevere.append(T.RandomResizedCrop(size=(200, 300), scale=(0.8, 1)))
+        transformForSevere.append(T.ToTensor())
+        self.transformForSevere = T.Compose(transformForSevere)
+
         if mode == 'train':
             self.num_images = len(self.train_dataset)
         else:
@@ -31,27 +43,44 @@ class DiabeticRetinopathy(data.Dataset):
         lines = [line.rstrip() for line in open(self.attr_csv_path, 'r')]
         # 맨 위 이름 제외
         # 테스트 때문에 33까지, 실제는 1:로 사용
-        lines = lines[1:33]
+        lines = lines[1:]
         # 셔플
         random.seed(1234)
         random.shuffle(lines)
-
+        # 각 라벨이 몇개 추가 되었는지 확인하는 List
+        check = np.zeros((10,), dtype=int)
         # 이미지 이름에 라벨링
         for i, line in enumerate(lines):
             split = line.split(",")
             filename = f"{split[0]}.jpeg"
-            values = int(split[1])
+            value = int(split[1])
             # left 0~4 right 5~9 오른쪽이면 +5
             if filename.split("_")[1] == "right.jpeg":
-                values += 5
+                value += 5
+
+            if check[value] >= 700:
+                continue
+
+            # 중증이면 무조건 추가
+            if value in [3, 4, 8, 9]:
+                self.train_dataset.append([filename, value])
+                check[value] += 1
+                continue
+
+            # 7,000 개 넘기면 break
+            self.train_dataset.append([filename, value])
+            check[value] += 1
+            if len(self.train_dataset) >= 7000:
+                break;
 
             # Test, Train 데이터 나누기
-            if (i+1) < 5000:
-                self.train_dataset.append([filename, values])
-            else:
-                self.test_dataset.append([filename, values])
+            # if (i+1) < 10000:
+            #     self.train_dataset.append([filename, value])
+            # else:
+            #     self.test_dataset.append([filename, value])
 
         print('Finished preprocessing the dataset...')
+        print(f"Total train dataset: {len(self.train_dataset)}")
 
     def __getitem__(self, index):
         """Return one image and its corresponding attribute label."""
@@ -60,7 +89,14 @@ class DiabeticRetinopathy(data.Dataset):
         filename, label = dataset[index]
         # 이미지 열고, transform 해서 label이랑 반환
         image = Image.open(os.path.join(self.image_dir, filename))
-        return self.transform(image), label
+
+        # if 3, 4, 8, 9
+        if int(label) in [3, 4, 8, 9]:
+            returnedImage = self.transformForSevere(image)
+        else:
+            returnedImage = self.transform(image)
+
+        return returnedImage, label
 
     def __len__(self):
         """Return the number of images."""
@@ -72,16 +108,11 @@ def get_loader(image_dir, attr_path,
     """Build and return a data loader."""
     # Traditional augmentaion
     transform = []
+
     # # Augmentation
     # if mode == 'train':
-    #     # 상하 반전
-    #     transform.append(T.RandomVerticalFlip())
-    # Resize 높이 200 너비 300
-    # transform.append(T.Resize(image_size))
     # # numpy image -> tensor image
     transform.append(T.ToTensor())
-    # 흑백 변환
-    # transform.append(T.Grayscale())
     transform = T.Compose(transform)
 
     # 데이터셋
@@ -91,5 +122,5 @@ def get_loader(image_dir, attr_path,
                                   batch_size=batch_size,
                                   shuffle=(mode == 'train'),
                                   num_workers=num_workers)
-#
+
     return data_loader
