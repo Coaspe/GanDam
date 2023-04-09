@@ -11,6 +11,11 @@ https://www.kaggle.com/c/diabetic-retinopathy-detection
 ## Proposal presentaion(KR)
 https://youtu.be/7j02KCI767A
 
+## Final presentation
+https://drive.google.com/file/d/1pteHvi_ULqFcQIZpcUiLBQwoKadjP_WW/view?usp=sharing
+
+## Final report
+https://drive.google.com/file/d/1Yr2uXMPtKTdUF0uJc1QPW9CeUHcrDZdw/view?usp=sharing
    
 ## Datast Labels
 #### Left   
